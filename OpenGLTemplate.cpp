@@ -13,8 +13,11 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 void init(void);
 void render();
+void texture1Rendering(const char* path);
+void texture2Rendering(const char* path);
 void tranformations(Shader& ourShader);
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn);
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 // variables
 const unsigned int screen_width = 1200;
@@ -23,6 +26,9 @@ GLuint NumVertices{};
 GLuint VBO;
 GLuint VAO;
 GLuint EBO;
+
+unsigned int texture1, texture2, appliedTexture{};
+int width, height, nrChannels;
 
 // camera
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
@@ -65,6 +71,7 @@ int main()
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetKeyCallback(window, key_callback);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 
@@ -77,6 +84,8 @@ int main()
 	Shader ourShader("shader.vs", "shader.fs");
 
 	init();
+	texture1Rendering("assets/box.png");
+	texture2Rendering("assets/smilie.png");
 
 	tranformations(ourShader);
 
@@ -100,6 +109,7 @@ int main()
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
+		glUniform1i(glGetUniformLocation(ourShader.ID, "texture1"), appliedTexture);
 	}
 
 	glfwDestroyWindow(window);
@@ -119,9 +129,14 @@ void tranformations(Shader& ourShader)
 
 void render()
 {
-	glClearColor(0.5f, 0.0f, 0.5f, 1.0f);
+	glClearColor(0.6f, 0.2f, 0.2f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture1);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, texture2);
 	glBindVertexArray(VAO);
+
 	for (int i = 0; i < 4; i++)
 	{
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(static_cast<unsigned long long>(i) * 6 * sizeof(unsigned int)));
@@ -132,28 +147,28 @@ void init(void)
 {
 	float vertices[] = {
 		// Rectangle 1 
-		1.0f,  1.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-		0.7f,  1.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-		0.7f,  0.7f, 0.0f, 1.0f, 0.0f, 0.0f,
-		1.0f,  0.7, 0.0f, 1.0f, 0.0f, 0.0f,
+		1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
+		0.7f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+		0.7f, 0.7f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+		1.0f, 0.7f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
 
 		// Rectangle 2
-		1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-		0.7f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-		0.7f, -0.7f, 0.0f, 0.0f, 1.0f, 0.0f,
-		1.0f, -0.7f, 0.0f, 0.0f, 1.0f, 0.0f,
+		1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+		0.7f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+		0.7f, -0.7f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+		1.0f, -0.7f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
 
 		// Rectangle 3 
-		-1.0f, -1.0f, 0.0f, 0.5f, 0.0f, 1.0f,
-		-0.7f, -1.0f, 0.0f, 0.5f, 0.0f, 1.0f,
-		-0.7f, -0.7f, 0.0f, 0.5f, 0.0f, 1.0f,
-		-1.0f, -0.7f, 0.0f, 0.5f, 0.0f, 1.0f,
+		-1.0f, -1.0f, 0.0f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
+		-0.7f, -1.0f, 0.0f, 0.5f, 0.0f, 1.0f, 1.0f, 0.0f,
+		-0.7f, -0.7f, 0.0f, 0.5f, 0.0f, 1.0f, 1.0f, 1.0f,
+		-1.0f, -0.7f, 0.0f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f,
 
 		// Rectangle 4
-		-1.0f,  1.0f, 0.0f, 1.0f, 0.8f, 0.0f,
-		-0.7f,  1.0f, 0.0f, 1.0f, 0.8f, 0.0f,
-		-0.7f,  0.7f, 0.0f, 1.0f, 0.8f, 0.0f,
-		-1.0f,  0.7f, 0.0f, 1.0f, 0.8f, 0.0f,
+		-1.0f,  1.0f, 0.0f, 1.0f, 0.8f, 0.0f, 0.0f, 1.0f,
+		-0.7f,  1.0f, 0.0f, 1.0f, 0.8f, 0.0f, 1.0f, 1.0f,
+		-0.7f,  0.7f, 0.0f, 1.0f, 0.8f, 0.0f, 1.0f, 0.0f,
+		-1.0f,  0.7f, 0.0f, 1.0f, 0.8f, 0.0f, 0.0f, 0.0f
 	};
 
 	unsigned int indices[] = {
@@ -175,6 +190,7 @@ void init(void)
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
 	glGenBuffers(1, &EBO);
+
 	glBindVertexArray(VAO);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -183,14 +199,15 @@ void init(void)
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+	// position attribute information
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
-
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+	// color attribute information
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
+	// texture coord attribute information
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+	glEnableVertexAttribArray(2);
 }
 
 // glfw: user input
@@ -255,4 +272,71 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 	direction.y = sin(glm::radians(pitch));
 	direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
 	cameraFront = glm::normalize(direction);
+}
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	if (key == GLFW_KEY_M && action == GLFW_PRESS)
+	{
+		glfwSetWindowShouldClose(window, true);
+	}
+	if ((key == GLFW_KEY_T) && action == GLFW_PRESS)
+	{
+		std::cout << "setting new texture" << std::endl;
+		appliedTexture = 1;
+
+	}
+	if ((key == GLFW_KEY_Y) && action == GLFW_PRESS)
+	{
+		std::cout << "resseting all textures" << std::endl;
+		appliedTexture = 0;
+	}
+}
+
+void texture1Rendering(const char* path)
+{
+	// texture 1
+	// ---------
+	glGenTextures(1, &texture1);
+	glBindTexture(GL_TEXTURE_2D, texture1);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	stbi_set_flip_vertically_on_load(true);
+	unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
+	if (data)
+	{
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else
+	{
+		std::cout << "Failed to load texture" << std::endl;
+	}
+	stbi_image_free(data);
+}
+
+void texture2Rendering(const char* path)
+{
+	// texture 2
+	// ---------
+	glGenTextures(1, &texture2);
+	glBindTexture(GL_TEXTURE_2D, texture2);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	stbi_set_flip_vertically_on_load(true);
+	unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
+	if (data)
+	{
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else
+	{
+		std::cout << "Failed to load texture" << std::endl;
+	}
+	stbi_image_free(data);
 }

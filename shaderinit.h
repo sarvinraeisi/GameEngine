@@ -1,9 +1,11 @@
+
 #ifndef SHADER_H
 #define SHADER_H
 
-#include <fstream>
 #include <glad/glad.h>
 #include <glm/glm.hpp>
+
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -11,9 +13,7 @@
 class Shader
 {
 public:
-	unsigned int ID{};
-
-	Shader() {};
+	unsigned int ID;
 	// constructor generates the shader on the fly
 	// ------------------------------------------------------------------------
 	Shader(const char* vertexPath, const char* fragmentPath, const char* geometryPath = nullptr)
@@ -90,11 +90,12 @@ public:
 			glAttachShader(ID, geometry);
 		glLinkProgram(ID);
 		checkCompileErrors(ID, "PROGRAM");
-		// delete the shaders as they're linked into our program now and no longer necessary
+		// delete the shaders as they're linked into our program now and no longer necessery
 		glDeleteShader(vertex);
 		glDeleteShader(fragment);
 		if (geometryPath != nullptr)
 			glDeleteShader(geometry);
+
 	}
 	// activate the shader
 	// ------------------------------------------------------------------------
@@ -164,18 +165,17 @@ public:
 private:
 	// utility function for checking shader compilation/linking errors.
 	// ------------------------------------------------------------------------
-	void checkCompileErrors(unsigned int shader, std::string type)
+	void checkCompileErrors(GLuint shader, std::string type)
 	{
-		int success;
-		char infoLog[1024];
+		GLint success;
+		GLchar infoLog[1024];
 		if (type != "PROGRAM")
 		{
 			glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 			if (!success)
 			{
 				glGetShaderInfoLog(shader, 1024, NULL, infoLog);
-				std::cout << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n"
-					<< infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+				std::cout << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
 			}
 		}
 		else
@@ -184,8 +184,7 @@ private:
 			if (!success)
 			{
 				glGetProgramInfoLog(shader, 1024, NULL, infoLog);
-				std::cout << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n"
-					<< infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+				std::cout << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
 			}
 		}
 	}
