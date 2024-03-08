@@ -76,8 +76,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <LibraryPath>D:\Seneca\sem 7.5\DPS931\OpenGLTutorials\libs;$(LibraryPath)</LibraryPath>
-    <IncludePath>D:\Seneca\sem 7.5\DPS931\OpenGLTutorials\include\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ProjectDir)/dependencies/libs;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir)/dependencies/include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
