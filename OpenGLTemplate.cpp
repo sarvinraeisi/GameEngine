@@ -42,9 +42,14 @@ float lastFrame = 0.0f;
 float lastX = screen_width / 2.0f;
 float lastY = screen_height / 2.0f;
 bool firstMouse = true;
-float yaw = -90.0f; // yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right
+float yaw = -90.0f; 
 float pitch = 0.0f;
 float mouseSensitivity = 0.1f;
+
+float blendFactor = 0.5f; 
+glm::vec3 blendColor(1.0f, 0.0f, 0.0f); 
+
+int selectedSquare = -1;
 
 int main()
 {
@@ -58,6 +63,7 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
+	srand(static_cast<unsigned int>(time(0)));
 	// glfw window creation
 	// --------------------
 	GLFWwindow* window;
@@ -102,6 +108,38 @@ int main()
 		render();
 
 		ourShader.use();
+
+		ourShader.setFloat("blendFactor", blendFactor);
+		ourShader.setVec3("blendColor", blendColor);
+
+		//for (int i = 0; i < 4; i++)
+		//{
+		//	// Determine if the current square is the selected one for blending
+		//	int applyBlend = (i == selectedSquare) ? 1 : 0;
+		//	ourShader.setInt("applyBlend", applyBlend);
+
+		//	// Set other uniforms and draw the square as before
+		//	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(static_cast<unsigned long long>(i) * 6 * sizeof(unsigned int)));
+		//}
+		for (int i = 0; i < 4; i++)
+		{
+			int applyBlend = (i == selectedSquare) ? 1 : 0;
+			ourShader.setInt("applyBlend", applyBlend);
+			// Bind both textures for all squares
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, texture1);
+			ourShader.setInt("texture1", 0); // Assuming your shader sampler for texture1 is set to use texture unit 0
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, texture2);
+			ourShader.setInt("texture2", 1); // Assuming your shader sampler for texture2 is set to use texture unit 1
+			// Set blendFactor and blendColor for all squares, the shader decides to use it or not
+			ourShader.setFloat("blendFactor", blendFactor);
+			ourShader.setVec3("blendColor", blendColor);
+
+			// Draw the square
+			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(static_cast<unsigned long long>(i) * 6 * sizeof(unsigned int)));
+		}
+
 		glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 		ourShader.setMat4("view", view);
 		glm::mat4 model = glm::mat4(1.0f);
@@ -217,17 +255,17 @@ void processInput(GLFWwindow* window)
 		glfwSetWindowShouldClose(window, true);
 	// increate the camera speed using the deltaTime
 	float cameraSpeed = 3 * deltaTime;
-	// forward movement
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+	// Forward movement
+	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
 		cameraPos += cameraSpeed * cameraFront;
-	// backward movement
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+	// Backward movement
+	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
 		cameraPos -= cameraSpeed * cameraFront;
-	// left movement
-	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+	// Left movement
+	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
 		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-	// right movement
-	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+	// Right movement
+	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
 		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
 }
 
@@ -251,7 +289,7 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 	}
 
 	float xoffset = xpos - lastX;
-	float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+	float yoffset = lastY - ypos; 
 	lastX = xpos;
 	lastY = ypos;
 
@@ -261,7 +299,6 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 	yaw += xoffset;
 	pitch += yoffset;
 
-	// Make sure that when pitch is out of bounds, screen doesn't get flipped
 	if (pitch > 89.0f)
 		pitch = 89.0f;
 	if (pitch < -89.0f)
@@ -291,6 +328,17 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		std::cout << "resseting all textures" << std::endl;
 		appliedTexture = 0;
 	}
+	if (key == GLFW_KEY_P && action == GLFW_PRESS)
+	{
+		// Randomize the blend factor and blend color
+		blendFactor = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+		blendColor = glm::vec3(
+			static_cast<float>(rand()) / static_cast<float>(RAND_MAX),
+			static_cast<float>(rand()) / static_cast<float>(RAND_MAX),
+			static_cast<float>(rand()) / static_cast<float>(RAND_MAX));
+		// Select one of the four squares randomly
+		selectedSquare = rand() % 4;
+	}
 }
 
 void texture1Rendering(const char* path)
@@ -299,7 +347,7 @@ void texture1Rendering(const char* path)
 	// ---------
 	glGenTextures(1, &texture1);
 	glBindTexture(GL_TEXTURE_2D, texture1);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -323,7 +371,7 @@ void texture2Rendering(const char* path)
 	// ---------
 	glGenTextures(1, &texture2);
 	glBindTexture(GL_TEXTURE_2D, texture2);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
