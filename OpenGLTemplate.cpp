@@ -30,7 +30,7 @@ GLuint EBO;
 unsigned int texture1, texture2, appliedTexture{};
 int width, height, nrChannels;
 
-// camera
+// camera 
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -42,12 +42,12 @@ float lastFrame = 0.0f;
 float lastX = screen_width / 2.0f;
 float lastY = screen_height / 2.0f;
 bool firstMouse = true;
-float yaw = -90.0f; 
+float yaw = -90.0f;
 float pitch = 0.0f;
 float mouseSensitivity = 0.1f;
 
-float blendFactor = 0.5f; 
-glm::vec3 blendColor(1.0f, 0.0f, 0.0f); 
+float blendFactor = 0.5f;
+glm::vec3 blendColor(1.0f, 0.0f, 0.0f);
 
 int selectedSquare = -1;
 
@@ -136,8 +136,9 @@ int main()
 			ourShader.setFloat("blendFactor", blendFactor);
 			ourShader.setVec3("blendColor", blendColor);
 
-			// Draw the square
-			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(static_cast<unsigned long long>(i) * 6 * sizeof(unsigned int)));
+
+			// Now draw the cube with glDrawElements
+			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, (void*)(i * 36 * sizeof(unsigned int)));
 		}
 
 		glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
@@ -183,47 +184,88 @@ void render()
 
 void init(void)
 {
+	float depth = 0.3f; // Depth for cubes
+	float size = 0.3f;  // Size for cubes
+
+	// Define the offset for placing cubes at the four corners
+	float offset = 0.5f;  // Distance from the center
+
+	// Define vertices for all 4 cubes
 	float vertices[] = {
-		// Rectangle 1 
-		1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f,
-		0.7f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f,
-		0.7f, 0.7f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-		1.0f, 0.7f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+		// Cube 1 vertices (Top Left)
+		-offset, offset, 0.0f,                   // Front Top Left
+		-offset - size, offset, 0.0f,            // Front Top Right
+		-offset - size, offset - size, 0.0f,     // Front Bottom Right
+		-offset, offset - size, 0.0f,            // Front Bottom Left
+		-offset, offset, -depth,                 // Back Top Left
+		-offset - size, offset, -depth,          // Back Top Right
+		-offset - size, offset - size, -depth,   // Back Bottom Right
+		-offset, offset - size, -depth,          // Back Bottom Left
 
-		// Rectangle 2
-		1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
-		0.7f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		0.7f, -0.7f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f,
-		1.0f, -0.7f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+		// Cube 2 vertices (Top Right)
+		offset, offset, 0.0f,
+		offset + size, offset, 0.0f,
+		offset + size, offset - size, 0.0f,
+		offset, offset - size, 0.0f,
+		offset, offset, -depth,
+		offset + size, offset, -depth,
+		offset + size, offset - size, -depth,
+		offset, offset - size, -depth,
 
-		// Rectangle 3 
-		-1.0f, -1.0f, 0.0f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
-		-0.7f, -1.0f, 0.0f, 0.5f, 0.0f, 1.0f, 1.0f, 0.0f,
-		-0.7f, -0.7f, 0.0f, 0.5f, 0.0f, 1.0f, 1.0f, 1.0f,
-		-1.0f, -0.7f, 0.0f, 0.5f, 0.0f, 1.0f, 0.0f, 1.0f,
+		// Cube 3 vertices (Bottom Left)
+		-offset, -offset, 0.0f,
+		-offset - size, -offset, 0.0f,
+		-offset - size, -offset + size, 0.0f,
+		-offset, -offset + size, 0.0f,
+		-offset, -offset, -depth,
+		-offset - size, -offset, -depth,
+		-offset - size, -offset + size, -depth,
+		-offset, -offset + size, -depth,
 
-		// Rectangle 4
-		-1.0f,  1.0f, 0.0f, 1.0f, 0.8f, 0.0f, 0.0f, 1.0f,
-		-0.7f,  1.0f, 0.0f, 1.0f, 0.8f, 0.0f, 1.0f, 1.0f,
-		-0.7f,  0.7f, 0.0f, 1.0f, 0.8f, 0.0f, 1.0f, 0.0f,
-		-1.0f,  0.7f, 0.0f, 1.0f, 0.8f, 0.0f, 0.0f, 0.0f
+		// Cube 4 vertices (Bottom Right)
+		offset, -offset, 0.0f,
+		offset + size, -offset, 0.0f,
+		offset + size, -offset + size, 0.0f,
+		offset, -offset + size, 0.0f,
+		offset, -offset, -depth,
+		offset + size, -offset, -depth,
+		offset + size, -offset + size, -depth,
+		offset, -offset + size, -depth,
 	};
 
 	unsigned int indices[] = {
-		0, 1, 2,
-		2, 3, 0,
+		// Indices for the first cube (Top Left)
+		0, 1, 2, 0, 2, 3,  // Front face
+		4, 5, 6, 4, 6, 7,  // Back face
+		0, 4, 7, 0, 7, 3,  // Left face
+		1, 5, 6, 1, 6, 2,  // Right face
+		0, 1, 5, 0, 5, 4,  // Top face
+		2, 3, 7, 2, 7, 6,  // Bottom face
 
-		4, 5, 6,
-		6, 7, 4,
+		// Indices for the second cube (Top Right) - Each index offset by 8
+		8, 9, 10, 8, 10, 11,
+		12, 13, 14, 12, 14, 15,
+		8, 12, 15, 8, 15, 11,
+		9, 13, 14, 9, 14, 10,
+		8, 9, 13, 8, 13, 12,
+		10, 11, 15, 10, 15, 14,
 
-		8, 9, 10,
-		10, 11, 8,
+		// Indices for the third cube (Bottom Left) - Each index offset by 16
+		16, 17, 18, 16, 18, 19,
+		20, 21, 22, 20, 22, 23,
+		16, 20, 23, 16, 23, 19,
+		17, 21, 22, 17, 22, 18,
+		16, 17, 21, 16, 21, 20,
+		18, 19, 23, 18, 23, 22,
 
-		12, 13, 14,
-		14, 15, 12
+		// Indices for the fourth cube (Bottom Right) - Each index offset by 24
+		24, 25, 26, 24, 26, 27,
+		28, 29, 30, 28, 30, 31,
+		24, 28, 31, 24, 31, 27,
+		25, 29, 30, 25, 30, 26,
+		24, 25, 29, 24, 29, 28,
+		26, 27, 31, 26, 31, 30,
 	};
-
-	NumVertices = sizeof(indices) / sizeof(indices[0]);;
 
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
@@ -237,12 +279,15 @@ void init(void)
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-	// position attribute information
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+	// Position attribute
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
+
+	
 	// color attribute information
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
+
 	// texture coord attribute information
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
 	glEnableVertexAttribArray(2);
@@ -251,6 +296,8 @@ void init(void)
 // glfw: user input
 void processInput(GLFWwindow* window)
 {
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST);
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
 	// increate the camera speed using the deltaTime
@@ -289,7 +336,7 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 	}
 
 	float xoffset = xpos - lastX;
-	float yoffset = lastY - ypos; 
+	float yoffset = lastY - ypos;
 	lastX = xpos;
 	lastY = ypos;
 
@@ -347,7 +394,7 @@ void texture1Rendering(const char* path)
 	// ---------
 	glGenTextures(1, &texture1);
 	glBindTexture(GL_TEXTURE_2D, texture1);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -371,7 +418,7 @@ void texture2Rendering(const char* path)
 	// ---------
 	glGenTextures(1, &texture2);
 	glBindTexture(GL_TEXTURE_2D, texture2);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
