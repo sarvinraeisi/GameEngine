@@ -8,6 +8,7 @@
 #include <iostream>
 #include "shaderinit.h"
 #include "stb_image.h"
+#include <vector>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
@@ -50,6 +51,18 @@ float blendFactor = 0.5f;
 glm::vec3 blendColor(1.0f, 0.0f, 0.0f);
 
 int selectedSquare = -1;
+
+bool rotateRandomCube = false;
+int rotatingCubeIndex = -1;
+float rotationAngle = 0.0f;
+
+float scale = 1.0f; // Default scale factor
+bool moveToCenter = false;
+bool resetTransformations = false;
+glm::vec3 originalPositions[4];
+glm::vec3 centerPosition = glm::vec3(0.0f, 0.0f, 0.0f);
+
+
 
 int main()
 {
@@ -109,8 +122,8 @@ int main()
 
 		ourShader.use();
 
-		ourShader.setFloat("blendFactor", blendFactor);
-		ourShader.setVec3("blendColor", blendColor);
+		/*ourShader.setFloat("blendFactor", blendFactor);
+		ourShader.setVec3("blendColor", blendColor);*/
 
 		//for (int i = 0; i < 4; i++)
 		//{
@@ -123,28 +136,56 @@ int main()
 		//}
 		for (int i = 0; i < 4; i++)
 		{
+		glm::mat4 model = glm::mat4(1.0f);
+
+		if (resetTransformations) {
+			scale = 1.0f; // Reset scale
+			moveToCenter = false; // Cancel centering
+			rotateRandomCube = false; // Stop rotation
+			rotationAngle = 0.0f; // Reset rotation angle
+			// Set model to original position
+			model = glm::translate(model, originalPositions[i]);
+			resetTransformations = false;
+		}
+		else {
+			// Apply transformations as before
+
+			if (moveToCenter && i == rotatingCubeIndex) {
+				// Move the cube to the center
+				model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+			}
+			else {
+				// Original position logic here
+			}
+
+			if (i == rotatingCubeIndex) {
+				model = glm::scale(model, glm::vec3(scale, scale, scale));
+				model = glm::rotate(model, glm::radians(rotationAngle), glm::vec3(0.0f, 1.0f, 0.0f));
+			}
+		}
+
 			int applyBlend = (i == selectedSquare) ? 1 : 0;
 			ourShader.setInt("applyBlend", applyBlend);
 			// Bind both textures for all squares
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, texture1);
-			ourShader.setInt("texture1", 0); // Assuming your shader sampler for texture1 is set to use texture unit 0
+			ourShader.setInt("texture1", 0); 
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, texture2);
-			ourShader.setInt("texture2", 1); // Assuming your shader sampler for texture2 is set to use texture unit 1
+			ourShader.setInt("texture2", 1); 
 			// Set blendFactor and blendColor for all squares, the shader decides to use it or not
 			ourShader.setFloat("blendFactor", blendFactor);
 			ourShader.setVec3("blendColor", blendColor);
 
-
+			ourShader.setMat4("model", model);
 			// Now draw the cube with glDrawElements
 			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, (void*)(i * 36 * sizeof(unsigned int)));
 		}
 
 		glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 		ourShader.setMat4("view", view);
-		glm::mat4 model = glm::mat4(1.0f);
-		ourShader.setMat4("model", model);
+		/*glm::mat4 model = glm::mat4(1.0f);*/
+		//ourShader.setMat4("model", model);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -168,7 +209,7 @@ void tranformations(Shader& ourShader)
 
 void render()
 {
-	glClearColor(0.6f, 0.2f, 0.2f, 1.0f);
+	glClearColor(0.1f, 0.2f, 0.2f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture1);
@@ -176,10 +217,16 @@ void render()
 	glBindTexture(GL_TEXTURE_2D, texture2);
 	glBindVertexArray(VAO);
 
-	for (int i = 0; i < 4; i++)
+	if (rotateRandomCube && rotatingCubeIndex != -1) {
+		rotationAngle += 45.0f * deltaTime; // Increment the angle
+	}
+
+
+
+	/*for (int i = 0; i < 4; i++)
 	{
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(static_cast<unsigned long long>(i) * 6 * sizeof(unsigned int)));
-	}
+	}*/
 }
 
 void init(void)
@@ -187,54 +234,70 @@ void init(void)
 	float depth = 0.3f; // Depth for cubes
 	float size = 0.3f;  // Size for cubes
 
-	// Define the offset for placing cubes at the four corners
+	
 	float offset = 0.5f;  // Distance from the center
+
+	// Plane vertices (a large square)
+	float planeVertices[] = {
+		// positions          // texture coords
+		-10.0f, -0.5f, -10.0f,  0.0f, 0.0f,
+		-10.0f, -0.5f,  10.0f,  0.0f, 10.0f,
+		 10.0f, -0.5f,  10.0f,  10.0f, 10.0f,
+		 10.0f, -0.5f, -10.0f,  10.0f, 0.0f
+	};
+
+	// Plane indices
+	unsigned int planeIndices[] = {
+		0, 1, 2,  // first triangle
+		0, 2, 3   // second triangle
+	};
 
 	// Define vertices for all 4 cubes
 	float vertices[] = {
 		// Cube 1 vertices (Top Left)
-		-offset, offset, 0.0f,                   // Front Top Left
-		-offset - size, offset, 0.0f,            // Front Top Right
-		-offset - size, offset - size, 0.0f,     // Front Bottom Right
-		-offset, offset - size, 0.0f,            // Front Bottom Left
-		-offset, offset, -depth,                 // Back Top Left
-		-offset - size, offset, -depth,          // Back Top Right
-		-offset - size, offset - size, -depth,   // Back Bottom Right
-		-offset, offset - size, -depth,          // Back Bottom Left
+		// Position             // Texture Coords
+		-offset, offset, 0.0f,    0.0f, 1.0f, // Front Top Left
+		-offset - size, offset, 0.0f,    1.0f, 1.0f, // Front Top Right
+		-offset - size, offset - size, 0.0f,    1.0f, 0.0f, // Front Bottom Right
+		-offset, offset - size, 0.0f,    0.0f, 0.0f, // Front Bottom Left
+		-offset, offset, -depth,    1.0f, 1.0f, // Back Top Left
+		-offset - size, offset, -depth,    0.0f, 1.0f, // Back Top Right
+		-offset - size, offset - size, -depth,    0.0f, 0.0f, // Back Bottom Right
+		-offset, offset - size, -depth,    1.0f, 0.0f, // Back Bottom Left
 
 		// Cube 2 vertices (Top Right)
-		offset, offset, 0.0f,
-		offset + size, offset, 0.0f,
-		offset + size, offset - size, 0.0f,
-		offset, offset - size, 0.0f,
-		offset, offset, -depth,
-		offset + size, offset, -depth,
-		offset + size, offset - size, -depth,
-		offset, offset - size, -depth,
+		offset, offset, 0.0f,    0.0f, 1.0f,
+		offset + size, offset, 0.0f,    1.0f, 1.0f,
+		offset + size, offset - size, 0.0f,    1.0f, 0.0f,
+		offset, offset - size, 0.0f,    0.0f, 0.0f,
+		offset, offset, -depth,    1.0f, 1.0f,
+		offset + size, offset, -depth,    0.0f, 1.0f,
+		offset + size, offset - size, -depth,    0.0f, 0.0f,
+		offset, offset - size, -depth,    1.0f, 0.0f,
 
 		// Cube 3 vertices (Bottom Left)
-		-offset, -offset, 0.0f,
-		-offset - size, -offset, 0.0f,
-		-offset - size, -offset + size, 0.0f,
-		-offset, -offset + size, 0.0f,
-		-offset, -offset, -depth,
-		-offset - size, -offset, -depth,
-		-offset - size, -offset + size, -depth,
-		-offset, -offset + size, -depth,
+		-offset, -offset, 0.0f,    0.0f, 1.0f,
+		-offset - size, -offset, 0.0f,    1.0f, 1.0f,
+		-offset - size, -offset + size, 0.0f,    1.0f, 0.0f,
+		-offset, -offset + size, 0.0f,    0.0f, 0.0f,
+		-offset, -offset, -depth,    1.0f, 1.0f,
+		-offset - size, -offset, -depth,    0.0f, 1.0f,
+		-offset - size, -offset + size, -depth,    0.0f, 0.0f,
+		-offset, -offset + size, -depth,    1.0f, 0.0f,
 
 		// Cube 4 vertices (Bottom Right)
-		offset, -offset, 0.0f,
-		offset + size, -offset, 0.0f,
-		offset + size, -offset + size, 0.0f,
-		offset, -offset + size, 0.0f,
-		offset, -offset, -depth,
-		offset + size, -offset, -depth,
-		offset + size, -offset + size, -depth,
-		offset, -offset + size, -depth,
+		offset, -offset, 0.0f,    0.0f, 1.0f,
+		offset + size, -offset, 0.0f,    1.0f, 1.0f,
+		offset + size, -offset + size, 0.0f,    1.0f, 0.0f,
+		offset, -offset + size, 0.0f,    0.0f, 0.0f,
+		offset, -offset, -depth,    1.0f, 1.0f,
+		offset + size, -offset, -depth,    0.0f, 1.0f,
+		offset + size, -offset + size, -depth,    0.0f, 0.0f,
+		offset, -offset + size, -depth,    1.0f, 0.0f,
 	};
 
 	unsigned int indices[] = {
-		// Indices for the first cube (Top Left)
+		// Indices for the first cube 
 		0, 1, 2, 0, 2, 3,  // Front face
 		4, 5, 6, 4, 6, 7,  // Back face
 		0, 4, 7, 0, 7, 3,  // Left face
@@ -242,7 +305,7 @@ void init(void)
 		0, 1, 5, 0, 5, 4,  // Top face
 		2, 3, 7, 2, 7, 6,  // Bottom face
 
-		// Indices for the second cube (Top Right) - Each index offset by 8
+		// Indices for the second cube 
 		8, 9, 10, 8, 10, 11,
 		12, 13, 14, 12, 14, 15,
 		8, 12, 15, 8, 15, 11,
@@ -250,7 +313,7 @@ void init(void)
 		8, 9, 13, 8, 13, 12,
 		10, 11, 15, 10, 15, 14,
 
-		// Indices for the third cube (Bottom Left) - Each index offset by 16
+		// Indices for the third cube 
 		16, 17, 18, 16, 18, 19,
 		20, 21, 22, 20, 22, 23,
 		16, 20, 23, 16, 23, 19,
@@ -258,7 +321,7 @@ void init(void)
 		16, 17, 21, 16, 21, 20,
 		18, 19, 23, 18, 23, 22,
 
-		// Indices for the fourth cube (Bottom Right) - Each index offset by 24
+		// Indices for the fourth cube 
 		24, 25, 26, 24, 26, 27,
 		28, 29, 30, 28, 30, 31,
 		24, 28, 31, 24, 31, 27,
@@ -266,6 +329,21 @@ void init(void)
 		24, 25, 29, 24, 29, 28,
 		26, 27, 31, 26, 31, 30,
 	};
+
+	originalPositions[0] = glm::vec3(-offset, offset, -depth / 2.0f); 
+	originalPositions[1] = glm::vec3(offset, offset, -depth / 2.0f);
+	originalPositions[2] = glm::vec3(-offset, -offset, -depth / 2.0f); 
+	originalPositions[3] = glm::vec3(offset, -offset, -depth / 2.0f);
+
+	// Combine plane and cube data into one array for each
+	std::vector<float> Vertices(planeVertices, planeVertices + sizeof(planeVertices) / sizeof(float));
+	Vertices.insert(Vertices.end(), vertices, vertices + sizeof(vertices) / sizeof(float));
+
+	std::vector<unsigned int> Indices(planeIndices, planeIndices + sizeof(planeIndices) / sizeof(unsigned int));
+	// Offset cube indices by the number of vertices in the plane and add them
+	for (unsigned int i : Indices) {
+		Indices.push_back(i + 4); // Offset by 4 as the plane has 4 vertices
+	}
 
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
@@ -280,16 +358,16 @@ void init(void)
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
 	// Position attribute
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 
 	
-	// color attribute information
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
+	//// color attribute information
+	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+	//glEnableVertexAttribArray(1);
 
 	// texture coord attribute information
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(2);
 }
 
@@ -302,16 +380,16 @@ void processInput(GLFWwindow* window)
 		glfwSetWindowShouldClose(window, true);
 	// increate the camera speed using the deltaTime
 	float cameraSpeed = 3 * deltaTime;
-	// Forward movement
+
 	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
 		cameraPos += cameraSpeed * cameraFront;
-	// Backward movement
+	
 	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
 		cameraPos -= cameraSpeed * cameraFront;
-	// Left movement
+	
 	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
 		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-	// Right movement
+
 	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
 		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
 }
@@ -385,6 +463,25 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			static_cast<float>(rand()) / static_cast<float>(RAND_MAX));
 		// Select one of the four squares randomly
 		selectedSquare = rand() % 4;
+	}
+	//rptation
+	if (key == GLFW_KEY_R && action == GLFW_PRESS) 
+	{
+		rotatingCubeIndex = rand() % 4; 
+		rotateRandomCube = true; 
+	}
+	// scaling
+	if (key == GLFW_KEY_S && action == GLFW_PRESS) 
+	{
+		scale = 2.5f; 
+	}
+	if (key == GLFW_KEY_W && action == GLFW_PRESS) 
+	{
+		moveToCenter = true;
+	}
+	if (key == GLFW_KEY_Q && action == GLFW_PRESS) 
+	{
+		resetTransformations = true;
 	}
 }
 
