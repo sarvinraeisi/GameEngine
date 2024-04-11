@@ -110,6 +110,8 @@ int main()
 
 	glm::mat4 view = glm::mat4(1.0f);
 
+	glEnable(GL_DEPTH_TEST);
+
 	// render loop
 	while (!glfwWindowShouldClose(window))
 	{
@@ -121,6 +123,13 @@ int main()
 		render();
 
 		ourShader.use();
+		ourShader.setInt("isPlane", 1);
+		ourShader.setVec3("blendColor", glm::vec3(1.0f, 0.3f, 0.6f));
+		// Draw Plane
+		glBindVertexArray(VAO); // Assuming plane uses the same VAO
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(sizeof(unsigned int) * 36 * 4)); 
+
+		ourShader.setInt("isPlane", 0);
 
 		/*ourShader.setFloat("blendFactor", blendFactor);
 		ourShader.setVec3("blendColor", blendColor);*/
@@ -134,6 +143,8 @@ int main()
 		//	// Set other uniforms and draw the square as before
 		//	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(static_cast<unsigned long long>(i) * 6 * sizeof(unsigned int)));
 		//}
+
+		// draw cubes
 		for (int i = 0; i < 4; i++)
 		{
 		glm::mat4 model = glm::mat4(1.0f);
@@ -182,6 +193,10 @@ int main()
 			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, (void*)(i * 36 * sizeof(unsigned int)));
 		}
 
+		//glEnable(GL_CULL_FACE);
+		//glCullFace(GL_FRONT);
+		//glFrontFace(GL_CCW);
+
 		glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 		ourShader.setMat4("view", view);
 		/*glm::mat4 model = glm::mat4(1.0f);*/
@@ -189,7 +204,7 @@ int main()
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
-		glUniform1i(glGetUniformLocation(ourShader.ID, "texture1"), appliedTexture);
+		//glUniform1i(glGetUniformLocation(ourShader.ID, "texture1"), appliedTexture);
 	}
 
 	glfwDestroyWindow(window);
@@ -233,23 +248,18 @@ void init(void)
 {
 	float depth = 0.3f; // Depth for cubes
 	float size = 0.3f;  // Size for cubes
-
-	
 	float offset = 0.5f;  // Distance from the center
 
-	// Plane vertices (a large square)
 	float planeVertices[] = {
-		// positions          // texture coords
-		-10.0f, -0.5f, -10.0f,  0.0f, 0.0f,
-		-10.0f, -0.5f,  10.0f,  0.0f, 10.0f,
-		 10.0f, -0.5f,  10.0f,  10.0f, 10.0f,
-		 10.0f, -0.5f, -10.0f,  10.0f, 0.0f
+	 -2.0f, -2.0f, -0.6f,   0.0f, 0.0f, // Bottom Left
+	  2.0f, -2.0f, -0.6f,   1.0f, 0.0f, // Bottom Right
+	  2.0f, 2.0f,  -0.6f,   1.0f, 1.0f, // Top Right
+	  -2.0f, 2.0f, -0.6f,   0.0f, 1.0f  // Top Left
 	};
 
-	// Plane indices
+	// Plane indices (after the last cube's indices)
 	unsigned int planeIndices[] = {
-		0, 1, 2,  // first triangle
-		0, 2, 3   // second triangle
+		32, 33, 34, 32, 34, 35 // Adjust indices based on your cube configuration
 	};
 
 	// Define vertices for all 4 cubes
@@ -294,6 +304,8 @@ void init(void)
 		offset + size, -offset, -depth,    0.0f, 1.0f,
 		offset + size, -offset + size, -depth,    0.0f, 0.0f,
 		offset, -offset + size, -depth,    1.0f, 0.0f,
+
+	
 	};
 
 	unsigned int indices[] = {
@@ -330,20 +342,9 @@ void init(void)
 		26, 27, 31, 26, 31, 30,
 	};
 
-	originalPositions[0] = glm::vec3(-offset, offset, -depth / 2.0f); 
-	originalPositions[1] = glm::vec3(offset, offset, -depth / 2.0f);
-	originalPositions[2] = glm::vec3(-offset, -offset, -depth / 2.0f); 
-	originalPositions[3] = glm::vec3(offset, -offset, -depth / 2.0f);
-
-	// Combine plane and cube data into one array for each
-	std::vector<float> Vertices(planeVertices, planeVertices + sizeof(planeVertices) / sizeof(float));
-	Vertices.insert(Vertices.end(), vertices, vertices + sizeof(vertices) / sizeof(float));
-
-	std::vector<unsigned int> Indices(planeIndices, planeIndices + sizeof(planeIndices) / sizeof(unsigned int));
-	// Offset cube indices by the number of vertices in the plane and add them
-	for (unsigned int i : Indices) {
-		Indices.push_back(i + 4); // Offset by 4 as the plane has 4 vertices
-	}
+	// Calculate the size of the vertices and indices arrays
+	int verticesArraySize = sizeof(vertices) + sizeof(planeVertices); // vertices is your original cube vertices array
+	int indicesArraySize = sizeof(indices) + sizeof(planeIndices); // indices is your original cube indices array
 
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
@@ -352,21 +353,20 @@ void init(void)
 	glBindVertexArray(VAO);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, verticesArraySize, nullptr, GL_STATIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(vertices), sizeof(planeVertices), planeVertices);
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicesArraySize, nullptr, GL_STATIC_DRAW);
+	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(indices), indices);
+	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), sizeof(planeIndices), planeIndices);
 
 	// Position attribute
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 
-	
-	//// color attribute information
-	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-	//glEnableVertexAttribArray(1);
-
-	// texture coord attribute information
+	// Texture coord attribute
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(2);
 }
@@ -375,7 +375,6 @@ void init(void)
 void processInput(GLFWwindow* window)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_DEPTH_TEST);
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
 	// increate the camera speed using the deltaTime
