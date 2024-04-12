@@ -6,9 +6,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
+#include <string>
+#include <vector>
 #include "shaderinit.h"
 #include "stb_image.h"
-#include <vector>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
@@ -16,6 +17,7 @@ void init(void);
 void render();
 void texture1Rendering(const char* path);
 void texture2Rendering(const char* path);
+unsigned int loadCubemap(std::vector<std::string> faces);
 void tranformations(Shader& ourShader);
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn);
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
@@ -27,6 +29,7 @@ GLuint NumVertices{};
 GLuint VBO;
 GLuint VAO;
 GLuint EBO;
+unsigned int skyboxVAO, skyboxVBO;
 
 unsigned int texture1, texture2, appliedTexture{};
 int width, height, nrChannels;
@@ -35,6 +38,8 @@ int width, height, nrChannels;
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+glm::mat4 cameraView = glm::mat4(1.0f);
+glm::mat4 projection = glm::mat4(1.0f);
 
 // timing
 float deltaTime = 0.0f;	// time between current frame and last frame
@@ -101,16 +106,30 @@ int main()
 	}
 
 	Shader ourShader("shader.vs", "shader.fs");
+	Shader skyboxShader("skyboxshader.vs", "skyboxshader.fs");
 
 	init();
 	texture1Rendering("assets/box.png");
 	texture2Rendering("assets/smilie.png");
+	std::vector<std::string> faces
+	{
+		"assets/skybox/right.jpg",
+		"assets/skybox/left.jpg",
+		"assets/skybox/top.jpg",
+		"assets/skybox/bottom.jpg",
+		"assets/skybox/front.jpg",
+		"assets/skybox/back.jpg"
+	};
+	unsigned int cubemapTexture = loadCubemap(faces);
 
 	tranformations(ourShader);
 
-	glm::mat4 view = glm::mat4(1.0f);
+
 
 	glEnable(GL_DEPTH_TEST);
+
+	skyboxShader.use();
+	skyboxShader.setInt("skybox", 0);
 
 	// render loop
 	while (!glfwWindowShouldClose(window))
@@ -127,7 +146,7 @@ int main()
 		ourShader.setVec3("blendColor", glm::vec3(1.0f, 0.3f, 0.6f));
 		// Draw Plane
 		glBindVertexArray(VAO); // Assuming plane uses the same VAO
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(sizeof(unsigned int) * 36 * 4)); 
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(sizeof(unsigned int) * 36 * 4));
 
 		ourShader.setInt("isPlane", 0);
 
@@ -147,43 +166,48 @@ int main()
 		// draw cubes
 		for (int i = 0; i < 4; i++)
 		{
-		glm::mat4 model = glm::mat4(1.0f);
+			glm::mat4 model = glm::mat4(1.0f);
 
-		if (resetTransformations) {
-			scale = 1.0f; // Reset scale
-			moveToCenter = false; // Cancel centering
-			rotateRandomCube = false; // Stop rotation
-			rotationAngle = 0.0f; // Reset rotation angle
-			// Set model to original position
-			model = glm::translate(model, originalPositions[i]);
-			resetTransformations = false;
-		}
-		else {
-			// Apply transformations as before
+			if (resetTransformations)
+			{
+				scale = 1.0f; // Reset scale
+				moveToCenter = false; // Cancel centering
+				rotateRandomCube = false; // Stop rotation
+				rotationAngle = 0.0f; // Reset rotation angle
+				// Set model to original position
+				model = glm::translate(model, originalPositions[i]);
+				resetTransformations = false;
+			}
+			else
+			{
+				// Apply transformations as before
 
-			if (moveToCenter && i == rotatingCubeIndex) {
-				// Move the cube to the center
-				model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-			}
-			else {
-				// Original position logic here
-			}
+				if (moveToCenter && i == rotatingCubeIndex)
+				{
+					// Move the cube to the center
+					model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+				}
+				else
+				{
+					// Original position logic here
+				}
 
-			if (i == rotatingCubeIndex) {
-				model = glm::scale(model, glm::vec3(scale, scale, scale));
-				model = glm::rotate(model, glm::radians(rotationAngle), glm::vec3(0.0f, 1.0f, 0.0f));
+				if (i == rotatingCubeIndex)
+				{
+					model = glm::scale(model, glm::vec3(scale, scale, scale));
+					model = glm::rotate(model, glm::radians(rotationAngle), glm::vec3(0.0f, 1.0f, 0.0f));
+				}
 			}
-		}
 
 			int applyBlend = (i == selectedSquare) ? 1 : 0;
 			ourShader.setInt("applyBlend", applyBlend);
 			// Bind both textures for all squares
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, texture1);
-			ourShader.setInt("texture1", 0); 
+			ourShader.setInt("texture1", 0);
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, texture2);
-			ourShader.setInt("texture2", 1); 
+			ourShader.setInt("texture2", 1);
 			// Set blendFactor and blendColor for all squares, the shader decides to use it or not
 			ourShader.setFloat("blendFactor", blendFactor);
 			ourShader.setVec3("blendColor", blendColor);
@@ -197,10 +221,27 @@ int main()
 		//glCullFace(GL_FRONT);
 		//glFrontFace(GL_CCW);
 
-		glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-		ourShader.setMat4("view", view);
+		cameraView = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+		ourShader.setMat4("view", cameraView);
+		ourShader.setMat4("projection", projection);
 		/*glm::mat4 model = glm::mat4(1.0f);*/
 		//ourShader.setMat4("model", model);
+
+		// draw skybox as last
+		skyboxShader.use();
+		cameraView = glm::mat4(glm::mat3(cameraView)); // remove translation from the view matrix
+		skyboxShader.setMat4("view", cameraView);
+		skyboxShader.setMat4("projection", projection);
+
+
+		// skybox cube
+		glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+		glBindVertexArray(skyboxVAO);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+		glBindVertexArray(0);
+		glDepthFunc(GL_LESS); // set depth function back to default
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -217,7 +258,7 @@ int main()
 
 void tranformations(Shader& ourShader)
 {
-	glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)screen_width / (float)screen_height, 0.1f, 100.0f);
+	projection = glm::perspective(glm::radians(45.0f), (float)screen_width / (float)screen_height, 0.1f, 100.0f);
 	ourShader.use();
 	ourShader.setMat4("projection", projection);
 }
@@ -232,11 +273,10 @@ void render()
 	glBindTexture(GL_TEXTURE_2D, texture2);
 	glBindVertexArray(VAO);
 
-	if (rotateRandomCube && rotatingCubeIndex != -1) {
+	if (rotateRandomCube && rotatingCubeIndex != -1)
+	{
 		rotationAngle += 45.0f * deltaTime; // Increment the angle
 	}
-
-
 
 	/*for (int i = 0; i < 4; i++)
 	{
@@ -305,7 +345,7 @@ void init(void)
 		offset + size, -offset + size, -depth,    0.0f, 0.0f,
 		offset, -offset + size, -depth,    1.0f, 0.0f,
 
-	
+
 	};
 
 	unsigned int indices[] = {
@@ -342,6 +382,52 @@ void init(void)
 		26, 27, 31, 26, 31, 30,
 	};
 
+	// skybox vertices
+	float skyboxVertices[] = {
+		// positions          
+		-1.0f,  1.0f, -1.0f,
+		-1.0f, -1.0f, -1.0f,
+		1.0f, -1.0f, -1.0f,
+		1.0f, -1.0f, -1.0f,
+		1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+
+		-1.0f, -1.0f,  1.0f,
+		-1.0f, -1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f,  1.0f,
+		-1.0f, -1.0f,  1.0f,
+
+		1.0f, -1.0f, -1.0f,
+		1.0f, -1.0f,  1.0f,
+		1.0f,  1.0f,  1.0f,
+		1.0f,  1.0f,  1.0f,
+		1.0f,  1.0f, -1.0f,
+		1.0f, -1.0f, -1.0f,
+
+		-1.0f, -1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+		1.0f,  1.0f,  1.0f,
+		1.0f,  1.0f,  1.0f,
+		1.0f, -1.0f,  1.0f,
+		-1.0f, -1.0f,  1.0f,
+
+		-1.0f,  1.0f, -1.0f,
+		1.0f,  1.0f, -1.0f,
+		1.0f,  1.0f,  1.0f,
+		1.0f,  1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+		-1.0f,  1.0f, -1.0f,
+
+		-1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f,  1.0f,
+		1.0f, -1.0f, -1.0f,
+		1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f,  1.0f,
+		1.0f, -1.0f,  1.0f
+	};
+
 	// Calculate the size of the vertices and indices arrays
 	int verticesArraySize = sizeof(vertices) + sizeof(planeVertices); // vertices is your original cube vertices array
 	int indicesArraySize = sizeof(indices) + sizeof(planeIndices); // indices is your original cube indices array
@@ -369,6 +455,18 @@ void init(void)
 	// Texture coord attribute
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(2);
+
+
+	// skybox VAO
+	// skybox VAO
+
+	glGenVertexArrays(1, &skyboxVAO);
+	glGenBuffers(1, &skyboxVBO);
+	glBindVertexArray(skyboxVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 }
 
 // glfw: user input
@@ -380,16 +478,16 @@ void processInput(GLFWwindow* window)
 	// increate the camera speed using the deltaTime
 	float cameraSpeed = 3 * deltaTime;
 
-	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
 		cameraPos += cameraSpeed * cameraFront;
-	
-	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
 		cameraPos -= cameraSpeed * cameraFront;
-	
-	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
 		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
 
-	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
 }
 
@@ -464,21 +562,21 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		selectedSquare = rand() % 4;
 	}
 	//rptation
-	if (key == GLFW_KEY_R && action == GLFW_PRESS) 
+	if (key == GLFW_KEY_R && action == GLFW_PRESS)
 	{
-		rotatingCubeIndex = rand() % 4; 
-		rotateRandomCube = true; 
+		rotatingCubeIndex = rand() % 4;
+		rotateRandomCube = true;
 	}
 	// scaling
-	if (key == GLFW_KEY_S && action == GLFW_PRESS) 
+	if (key == GLFW_KEY_S && action == GLFW_PRESS)
 	{
-		scale = 2.5f; 
+		scale = 2.5f;
 	}
-	if (key == GLFW_KEY_W && action == GLFW_PRESS) 
+	if (key == GLFW_KEY_W && action == GLFW_PRESS)
 	{
 		moveToCenter = true;
 	}
-	if (key == GLFW_KEY_Q && action == GLFW_PRESS) 
+	if (key == GLFW_KEY_Q && action == GLFW_PRESS)
 	{
 		resetTransformations = true;
 	}
@@ -530,4 +628,35 @@ void texture2Rendering(const char* path)
 		std::cout << "Failed to load texture" << std::endl;
 	}
 	stbi_image_free(data);
+}
+
+unsigned int loadCubemap(std::vector<std::string> faces)
+{
+	unsigned int textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+	int width, height, nrChannels;
+	stbi_set_flip_vertically_on_load(false);
+	for (unsigned int i = 0; i < faces.size(); i++)
+	{
+		unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+		if (data)
+		{
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+			stbi_image_free(data);
+		}
+		else
+		{
+			std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
+			stbi_image_free(data);
+		}
+	}
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	return textureID;
 }
