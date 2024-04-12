@@ -42,7 +42,7 @@ glm::mat4 cameraView = glm::mat4(1.0f);
 glm::mat4 projection = glm::mat4(1.0f);
 
 // timing
-float deltaTime = 0.0f;	// time between current frame and last frame
+float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
 float lastX = screen_width / 2.0f;
@@ -61,12 +61,12 @@ bool rotateRandomCube = false;
 int rotatingCubeIndex = -1;
 float rotationAngle = 0.0f;
 
-float scale = 1.0f; // Default scale factor
+float scale = 1.0f;
 bool moveToCenter = false;
 bool resetTransformations = false;
 glm::vec3 originalPositions[4];
 glm::vec3 centerPosition = glm::vec3(0.0f, 0.0f, 0.0f);
-
+glm::mat4 model = glm::mat4(1.0f);
 
 
 int main()
@@ -106,7 +106,9 @@ int main()
 	}
 
 	Shader ourShader("shader.vs", "shader.fs");
+	//Shader ourShader("shader.vs", "shader.fs", "shader.gs");
 	Shader skyboxShader("skyboxshader.vs", "skyboxshader.fs");
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 	init();
 	texture1Rendering("assets/box.png");
@@ -124,8 +126,6 @@ int main()
 
 	tranformations(ourShader);
 
-
-
 	glEnable(GL_DEPTH_TEST);
 
 	skyboxShader.use();
@@ -137,61 +137,34 @@ int main()
 		float currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
-
 		processInput(window);
 		render();
-
 		ourShader.use();
 		ourShader.setInt("isPlane", 1);
 		ourShader.setVec3("blendColor", glm::vec3(1.0f, 0.3f, 0.6f));
 		// Draw Plane
-		glBindVertexArray(VAO); // Assuming plane uses the same VAO
+		glBindVertexArray(VAO);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(sizeof(unsigned int) * 36 * 4));
-
 		ourShader.setInt("isPlane", 0);
-
-		/*ourShader.setFloat("blendFactor", blendFactor);
-		ourShader.setVec3("blendColor", blendColor);*/
-
-		//for (int i = 0; i < 4; i++)
-		//{
-		//	// Determine if the current square is the selected one for blending
-		//	int applyBlend = (i == selectedSquare) ? 1 : 0;
-		//	ourShader.setInt("applyBlend", applyBlend);
-
-		//	// Set other uniforms and draw the square as before
-		//	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(static_cast<unsigned long long>(i) * 6 * sizeof(unsigned int)));
-		//}
 
 		// draw cubes
 		for (int i = 0; i < 4; i++)
 		{
-			glm::mat4 model = glm::mat4(1.0f);
-
 			if (resetTransformations)
 			{
-				scale = 1.0f; // Reset scale
-				moveToCenter = false; // Cancel centering
-				rotateRandomCube = false; // Stop rotation
-				rotationAngle = 0.0f; // Reset rotation angle
-				// Set model to original position
+				scale = 1.0f;
+				moveToCenter = false;
+				rotateRandomCube = false;
+				rotationAngle = 0.0f;
 				model = glm::translate(model, originalPositions[i]);
 				resetTransformations = false;
 			}
 			else
 			{
-				// Apply transformations as before
-
 				if (moveToCenter && i == rotatingCubeIndex)
 				{
-					// Move the cube to the center
 					model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
 				}
-				else
-				{
-					// Original position logic here
-				}
-
 				if (i == rotatingCubeIndex)
 				{
 					model = glm::scale(model, glm::vec3(scale, scale, scale));
@@ -201,19 +174,16 @@ int main()
 
 			int applyBlend = (i == selectedSquare) ? 1 : 0;
 			ourShader.setInt("applyBlend", applyBlend);
-			// Bind both textures for all squares
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, texture1);
 			ourShader.setInt("texture1", 0);
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, texture2);
 			ourShader.setInt("texture2", 1);
-			// Set blendFactor and blendColor for all squares, the shader decides to use it or not
 			ourShader.setFloat("blendFactor", blendFactor);
 			ourShader.setVec3("blendColor", blendColor);
 
 			ourShader.setMat4("model", model);
-			// Now draw the cube with glDrawElements
 			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, (void*)(i * 36 * sizeof(unsigned int)));
 		}
 
@@ -224,34 +194,28 @@ int main()
 		cameraView = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 		ourShader.setMat4("view", cameraView);
 		ourShader.setMat4("projection", projection);
-		/*glm::mat4 model = glm::mat4(1.0f);*/
-		//ourShader.setMat4("model", model);
 
-		// draw skybox as last
 		skyboxShader.use();
-		cameraView = glm::mat4(glm::mat3(cameraView)); // remove translation from the view matrix
+		cameraView = glm::mat4(glm::mat3(cameraView));
 		skyboxShader.setMat4("view", cameraView);
 		skyboxShader.setMat4("projection", projection);
 
-
 		// skybox cube
-		glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+		glDepthFunc(GL_LEQUAL);
 		glBindVertexArray(skyboxVAO);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 		glBindVertexArray(0);
-		glDepthFunc(GL_LESS); // set depth function back to default
+		glDepthFunc(GL_LESS);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
-		//glUniform1i(glGetUniformLocation(ourShader.ID, "texture1"), appliedTexture);
 	}
 
 	glfwDestroyWindow(window);
 	glDeleteVertexArrays(1, &VAO);
 	glDeleteBuffers(1, &VBO);
-	//glDeleteProgram(shaderProgram);
 	glfwTerminate();
 	return 0;
 }
@@ -275,45 +239,37 @@ void render()
 
 	if (rotateRandomCube && rotatingCubeIndex != -1)
 	{
-		rotationAngle += 45.0f * deltaTime; // Increment the angle
+		rotationAngle += 45.0f * deltaTime;
 	}
-
-	/*for (int i = 0; i < 4; i++)
-	{
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)(static_cast<unsigned long long>(i) * 6 * sizeof(unsigned int)));
-	}*/
 }
 
 void init(void)
 {
-	float depth = 0.3f; // Depth for cubes
-	float size = 0.3f;  // Size for cubes
-	float offset = 0.5f;  // Distance from the center
+	float depth = 0.3f;
+	float size = 0.3f;
+	float offset = 0.5f;
 
 	float planeVertices[] = {
-	 -2.0f, -2.0f, -0.6f,   0.0f, 0.0f, // Bottom Left
-	  2.0f, -2.0f, -0.6f,   1.0f, 0.0f, // Bottom Right
-	  2.0f, 2.0f,  -0.6f,   1.0f, 1.0f, // Top Right
-	  -2.0f, 2.0f, -0.6f,   0.0f, 1.0f  // Top Left
+	 -2.0f, -2.0f, -0.6f,   0.0f, 0.0f
+	  2.0f, -2.0f, -0.6f,   1.0f, 0.0f
+	  2.0f, 2.0f,  -0.6f,   1.0f, 1.0f
+	  - 2.0f, 2.0f, -0.6f,   0.0f, 1.0f
 	};
 
-	// Plane indices (after the last cube's indices)
 	unsigned int planeIndices[] = {
-		32, 33, 34, 32, 34, 35 // Adjust indices based on your cube configuration
+		32, 33, 34, 32, 34, 35
 	};
 
-	// Define vertices for all 4 cubes
 	float vertices[] = {
 		// Cube 1 vertices (Top Left)
-		// Position             // Texture Coords
-		-offset, offset, 0.0f,    0.0f, 1.0f, // Front Top Left
-		-offset - size, offset, 0.0f,    1.0f, 1.0f, // Front Top Right
-		-offset - size, offset - size, 0.0f,    1.0f, 0.0f, // Front Bottom Right
-		-offset, offset - size, 0.0f,    0.0f, 0.0f, // Front Bottom Left
-		-offset, offset, -depth,    1.0f, 1.0f, // Back Top Left
-		-offset - size, offset, -depth,    0.0f, 1.0f, // Back Top Right
-		-offset - size, offset - size, -depth,    0.0f, 0.0f, // Back Bottom Right
-		-offset, offset - size, -depth,    1.0f, 0.0f, // Back Bottom Left
+		-offset, offset, 0.0f,    0.0f, 1.0f,					// Front Top Left
+		-offset - size, offset, 0.0f,    1.0f, 1.0f,			// Front Top Right
+		-offset - size, offset - size, 0.0f,    1.0f, 0.0f,		// Front Bottom Right
+		-offset, offset - size, 0.0f,    0.0f, 0.0f,			// Front Bottom Left
+		-offset, offset, -depth,    1.0f, 1.0f,					// Back Top Left
+		-offset - size, offset, -depth,    0.0f, 1.0f,			// Back Top Right
+		-offset - size, offset - size, -depth,    0.0f, 0.0f,	// Back Bottom Right
+		-offset, offset - size, -depth,    1.0f, 0.0f,			// Back Bottom Left
 
 		// Cube 2 vertices (Top Right)
 		offset, offset, 0.0f,    0.0f, 1.0f,
@@ -344,8 +300,6 @@ void init(void)
 		offset + size, -offset, -depth,    0.0f, 1.0f,
 		offset + size, -offset + size, -depth,    0.0f, 0.0f,
 		offset, -offset + size, -depth,    1.0f, 0.0f,
-
-
 	};
 
 	unsigned int indices[] = {
@@ -428,9 +382,16 @@ void init(void)
 		1.0f, -1.0f,  1.0f
 	};
 
+	float points[] = {
+		-0.5f,  0.5f, 1.0f, 0.0f, 0.0f,
+		0.5f,  0.5f, 0.0f, 1.0f, 0.0f,
+		0.5f, -0.5f, 0.0f, 0.0f, 1.0f,
+		-0.5f, -0.5f, 1.0f, 1.0f, 0.0f
+	};
+
 	// Calculate the size of the vertices and indices arrays
-	int verticesArraySize = sizeof(vertices) + sizeof(planeVertices); // vertices is your original cube vertices array
-	int indicesArraySize = sizeof(indices) + sizeof(planeIndices); // indices is your original cube indices array
+	int verticesArraySize = sizeof(vertices) + sizeof(planeVertices);
+	int indicesArraySize = sizeof(indices) + sizeof(planeIndices);
 
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
@@ -456,10 +417,7 @@ void init(void)
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(2);
 
-
 	// skybox VAO
-	// skybox VAO
-
 	glGenVertexArrays(1, &skyboxVAO);
 	glGenBuffers(1, &skyboxVBO);
 	glBindVertexArray(skyboxVAO);
@@ -475,9 +433,8 @@ void processInput(GLFWwindow* window)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
-	// increate the camera speed using the deltaTime
-	float cameraSpeed = 3 * deltaTime;
 
+	float cameraSpeed = 3 * deltaTime;
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
 		cameraPos += cameraSpeed * cameraFront;
 
