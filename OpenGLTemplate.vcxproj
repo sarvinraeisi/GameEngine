@@ -166,7 +166,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="shader.fs" />
+    <None Include="shader.gs" />
     <None Include="shader.vs" />
+    <None Include="skyboxshader.fs" />
+    <None Include="skyboxshader.vs" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
